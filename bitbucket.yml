@@ -1,0 +1,48 @@
+---
+- hosts: bitbucket
+  roles:
+    - role: geerlingguy.git
+      become: yes
+    - role: ANXS.postgresql
+      become: yes
+      #override os variables
+      ansible_distribution: 'RedHat'
+      ansible_distribution_major_version: 6
+      postgresql_bin_directory: '/usr/bin'
+      postgresql_service_name: 'postgresql96'
+      postgresql_conf_directory: "/var/lib/pgsql96/{{ postgresql_version }}/{{ postgresql_cluster_name }}"
+      # Basic settings
+      postgresql_version: 9.6
+      postgresql_encoding: 'UTF-8'
+      postgresql_locale: 'en_US.UTF-8'
+      postgresql_ctype: 'en_US.UTF-8'
+
+      postgresql_admin_user: "postgres"
+      postgresql_default_auth_method: "md5"
+
+      #disable this because it does it wrong
+      postgresql_service_enabled: false # should the service be enabled, default is true
+
+      postgresql_cluster_name: "main"
+      postgresql_cluster_reset: false
+
+      # List of databases to be created (optional)
+      # Note: for more flexibility with extensions use the postgresql_database_extensions setting.
+      postgresql_databases:
+        - name: "{{ postgresql_bitbucket_database }}"
+          #owner: baz          # optional; specify the owner of the database
+          hstore: yes         # flag to install the hstore extension on this database (yes/no)
+          uuid_ossp: yes      # flag to install the uuid-ossp extension on this database (yes/no)
+          citext: yes         # flag to install the citext extension on this database (yes/no)
+          encoding: 'UTF-8'   # override global {{ postgresql_encoding }} variable per database
+          #lc_collate: 'en_GB.UTF-8'   # override global {{ postgresql_locale }} variable per database
+          #lc_ctype: 'en_GB.UTF-8'     # override global {{ postgresql_ctype }} variable per database
+
+      # List of users to be created (optional)
+      postgresql_users:
+        - name: "{{ postgresql_bitbucket_user }}"
+          pass: "{{ postgresql_bitbucket_password }}"
+          encrypted: no       # denotes if the password is already encrypted.
+    - role: geerlingguy.elasticsearch
+      elasticsearch_http_port: 7992
+      become: yes
