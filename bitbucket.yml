@@ -10,7 +10,10 @@
       ansible_distribution_major_version: 6
       postgresql_bin_directory: '/usr/bin'
       postgresql_service_name: 'postgresql96'
-      postgresql_conf_directory: "/var/lib/pgsql96/{{ postgresql_version }}/{{ postgresql_cluster_name }}"
+      postgresql_conf_directory: '/var/lib/pgsql96/data'
+      postgresql_varlib_directory_name: 'pgsql96'
+      postgresql_data_directory: '/var/lib/{{ postgresql_varlib_directory_name }}/data'
+      
       # Basic settings
       postgresql_version: 9.6
       postgresql_encoding: 'UTF-8'
@@ -43,6 +46,29 @@
         - name: "{{ postgresql_bitbucket_user }}"
           pass: "{{ postgresql_bitbucket_password }}"
           encrypted: no       # denotes if the password is already encrypted.
-    - role: geerlingguy.elasticsearch
-      elasticsearch_http_port: 7992
+      postgresql_pg_hba_default:
+        - { type: local, database: all, user: "{{ postgresql_admin_user }}", address: "", method: "trust", comment: "" }
+        - { type: local, database: all, user: all, address: "",             method: "{{ postgresql_default_auth_method }}", comment: '"local" is for Unix domain socket connections only' }
+        - { type: host,  database: all, user: all, address: "127.0.0.1/32", method: "{{ postgresql_default_auth_method }}", comment: "IPv4 local connections:" }
+        - { type: host,  database: all, user: all, address: "::1/128",      method: "{{ postgresql_default_auth_method }}", comment: "IPv6 local connections:" }
+    #- role: geerlingguy.elasticsearch
+    #  elasticsearch_http_port: 7992
+    #  become: yes
+    - role: geerlingguy.nginx
       become: yes
+      ansible_distribution_major_version: 6
+      nginx_vhosts:
+        - listen: "80"
+          server_name: "bitbucket.fastfeedback.rocks.conf"
+          state: "present"
+          template: "{{ nginx_vhost_template }}"
+          filename: "bitbucket.fastfeedback.rocks.conf"
+          extra_parameters: |
+            location / {
+                proxy_set_header Host $host:$server_port;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_pass http://127.0.0.1:7990;
+            }
+      
